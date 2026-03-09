@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="30 Day Overdue — Device Report Tool by c3dprints.com">
+<title>30 Day Overdue</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #111827;
+    --card2: #1e293b;
+    --border: #334155;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent2: #2563eb;
+    --success: #10b981;
+    --success2: #059669;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --amber30: #fef3c7;
+    --amber60: #fde68a;
+    --red90: #fca5a5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 700;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #f8fafc 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+  }
+
+  .header-left p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-top: 8px;
+    font-weight: 300;
+  }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    align-self: flex-start;
+    margin-top: 8px;
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(59,130,246,0.02);
+    margin-bottom: 20px;
+  }
+
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.06);
+  }
+
+  .dropzone-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .dropzone p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .dropzone strong {
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .file-selected {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    color: var(--success);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    word-break: break-all;
+  }
+
+  .file-selected.visible { display: flex; }
+
+  /* Form fields */
+  .field { margin-bottom: 18px; }
+
+  label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  input[type="number"] {
+    width: 100%;
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="number"]:focus { border-color: var(--accent); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 13px 20px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn:last-child { margin-bottom: 0; }
+
+  .btn-primary { background: var(--success); color: #fff; }
+  .btn-primary:hover { background: var(--success2); transform: translateY(-1px); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  .btn-secondary { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #293548; }
+
+  /* Progress */
+  .progress-wrap {
+    display: none;
+    margin-top: 16px;
+  }
+
+  .progress-wrap.visible { display: block; }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--card2);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+    animation: progress-slide 1.2s ease-in-out infinite;
+  }
+
+  @keyframes progress-slide {
+    0% { width: 0%; margin-left: 0; }
+    50% { width: 60%; margin-left: 20%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  .status {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Right panel */
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .row-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: var(--card2);
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+
+  /* Table */
+  .table-wrap {
+    overflow: auto;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    max-height: 500px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  thead th {
+    background: var(--card2);
+    color: var(--text);
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+  }
+
+  tbody tr { border-bottom: 1px solid rgba(51,65,85,0.5); transition: background 0.1s; }
+  tbody tr:hover { background: rgba(59,130,246,0.04); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 9px 14px;
+    white-space: nowrap;
+    color: var(--muted);
+  }
+
+  /* Row highlighting (dark-friendly) */
+  tr.row-30 td { background: rgba(254,243,199,0.06); }
+  tr.row-60 td { background: rgba(253,230,138,0.08); }
+  tr.row-90 td { background: rgba(252,165,165,0.1); }
+  tr.row-30 { border-left: 3px solid #d97706; }
+  tr.row-60 { border-left: 3px solid #b45309; }
+  tr.row-90 { border-left: 3px solid #dc2626; }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .empty-icon { font-size: 3rem; margin-bottom: 12px; display: block; opacity: 0.4; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-size: 0.9rem;
+    color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 100;
+    max-width: 320px;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(16,185,129,0.4); }
+  .toast.error { border-color: rgba(239,68,68,0.4); }
+
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-left">
+      <h1>30 Day Overdue</h1>
+      <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
+    </div>
+    <span class="badge">c3dprints.com</span>
+  </header>
+
+  <div class="layout">
+    <!-- Left Panel -->
+    <div class="card">
+      <div class="card-title">Controls</div>
+
+      <div class="dropzone" id="dropzone">
+        <span class="dropzone-icon">📂</span>
+        <p>Drop your CSV here or <strong onclick="document.getElementById('file-input').click()">browse</strong></p>
+        <p style="margin-top:6px;font-size:0.8rem;">Device report CSV from your MDM</p>
+      </div>
+      <input type="file" id="file-input" accept=".csv">
+
+      <div class="file-selected" id="file-selected">
+        <span>✓</span>
+        <span id="file-name"></span>
+      </div>
+
+      <div class="field">
+        <label>Days Threshold</label>
+        <input type="number" id="days-input" value="30" min="1">
+      </div>
+
+      <div class="card-title" style="margin-top:8px;">Highlighting</div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="swatch" style="background:#d97706;"></div>
+          <span>30+ days — amber</span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background:#b45309;"></div>
+          <span>60+ days — deep amber</span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background:#dc2626;"></div>
+          <span>90+ days — red</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="generate-btn" disabled>
+        ⚡ Generate Excel
+      </button>
+      <button class="btn btn-secondary" id="clear-btn">
+        ✕ Clear
+      </button>
+
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+        <div class="status" id="status-text">Processing...</div>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="card">
+      <div class="preview-header">
+        <div class="card-title" style="margin-bottom:0;">Device Preview</div>
+        <span class="row-count" id="row-count">0 rows</span>
+      </div>
+
+      <div class="table-wrap">
+        <div class="empty-state" id="empty-state">
+          <span class="empty-icon">🖥</span>
+          <p>Upload a CSV and click Generate Excel<br>to preview overdue devices here.</p>
+        </div>
+        <table id="preview-table" style="display:none;">
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let csvData = null;
+  let fileName = '';
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  const fileSelected = document.getElementById('file-selected');
+  const fileNameEl = document.getElementById('file-name');
+  const generateBtn = document.getElementById('generate-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  const daysInput = document.getElementById('days-input');
+  const progressWrap = document.getElementById('progress-wrap');
+  const statusText = document.getElementById('status-text');
+  const rowCount = document.getElementById('row-count');
+  const emptyState = document.getElementById('empty-state');
+  const previewTable = document.getElementById('preview-table');
+  const tableHead = document.getElementById('table-head');
+  const tableBody = document.getElementById('table-body');
+  const toast = document.getElementById('toast');
+
+  // Drag & drop
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) loadFile(file);
+    else showToast('Please drop a CSV file.', 'error');
+  });
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+  function loadFile(file) {
+    fileName = file.name;
+    fileNameEl.textContent = fileName;
+    fileSelected.classList.add('visible');
+    statusText.textContent = 'CSV loaded. Ready to generate.';
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: results => {
+        csvData = results.data;
+        generateBtn.disabled = false;
+        showToast(`Loaded ${csvData.length} rows from ${fileName}`, 'success');
+      },
+      error: () => showToast('Failed to parse CSV.', 'error')
+    });
+  }
+
+  // Find column by keywords
+  function findColumn(headers, ...keywords) {
+    return headers.find(h => keywords.every(k => h.toLowerCase().includes(k))) || null;
+  }
+
+  // Parse date strings, strip timezone abbreviations
+  function parseDate(str) {
+    if (!str) return null;
+    const cleaned = str.toString().trim().replace(/\s+(EST|EDT|CST|CDT|MST|MDT|PST|PDT)\b/i, '');
+    const d = new Date(cleaned);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  generateBtn.addEventListener('click', () => {
+    if (!csvData) return;
+
+    const days = parseInt(daysInput.value) || 30;
+    if (days < 1) { showToast('Days must be at least 1.', 'error'); return; }
+
+    progressWrap.classList.add('visible');
+    generateBtn.disabled = true;
+    statusText.textContent = 'Processing report...';
+
+    setTimeout(() => {
+      try {
+        const headers = Object.keys(csvData[0]);
+
+        const lastSeenCol = findColumn(headers, 'last', 'seen') || findColumn(headers, 'seen');
+        if (!lastSeenCol) {
+          showToast('Could not find a "Last Seen" column in your CSV.', 'error');
+          progressWrap.classList.remove('visible');
+          generateBtn.disabled = false;
+          return;
+        }
+
+        const today = new Date();
+        const cutoff = new Date(today - days * 86400000);
+
+        // Process rows
+        const processed = csvData.map(row => {
+          const lastSeen = parseDate(row[lastSeenCol]);
+          const daysSince = lastSeen ? Math.floor((today - lastSeen) / 86400000) : null;
+          return { ...row, _lastSeenDate: lastSeen, 'Days Since Last Seen': daysSince };
+        });
+
+        const overdue = processed
+          .filter(r => r._lastSeenDate && r._lastSeenDate < cutoff)
+          .sort((a, b) => a._lastSeenDate - b._lastSeenDate)
+          .map(r => {
+            const out = { ...r };
+            out['Last Seen (Parsed)'] = r._lastSeenDate
+              ? r._lastSeenDate.toISOString().slice(0, 16).replace('T', ' ')
+              : '';
+            delete out._lastSeenDate;
+            return out;
+          });
+
+        statusText.textContent = `Found ${overdue.length} overdue device(s). Building Excel...`;
+
+        // Build preview
+        buildPreview(overdue);
+
+        // Build Excel
+        const wb = XLSX.utils.book_new();
+        const exportRows = overdue.map(r => {
+          const clean = { ...r };
+          return clean;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(exportRows);
+
+        // Style header row
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        const colHeaders = Object.keys(overdue[0] || {});
+        const daysColIdx = colHeaders.indexOf('Days Since Last Seen');
+
+        // Set column widths
+        ws['!cols'] = colHeaders.map(h => ({ wch: Math.min(Math.max(h.length + 4, 14), 40) }));
+
+        // Apply fills using HTML color values
+        for (let R = range.s.r + 1; R <= range.e.r; R++) {
+          const daysCell = ws[XLSX.utils.encode_cell({ r: R, c: daysColIdx })];
+          const daysVal = daysCell ? parseInt(daysCell.v) : null;
+
+          let fgColor = null;
+          if (daysVal >= 90) fgColor = 'FCA5A5';
+          else if (daysVal >= 60) fgColor = 'FDE68A';
+          else if (daysVal >= 30) fgColor = 'FEF3C7';
+
+          if (fgColor) {
+            for (let C = range.s.c; C <= range.e.c; C++) {
+              const addr = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+              ws[addr].s = { fill: { fgColor: { rgb: fgColor } } };
+            }
+          }
+        }
+
+        // Header style
+        for (let C = range.s.c; C <= range.e.c; C++) {
+          const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+          if (!ws[addr]) continue;
+          ws[addr].s = {
+            fill: { fgColor: { rgb: '1E293B' } },
+            font: { bold: true, color: { rgb: 'FFFFFF' } }
+          };
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Overdue Devices');
+
+        const outName = fileName.replace('.csv', '') + `_over_${days}_days.xlsx`;
+        XLSX.writeFile(wb, outName);
+
+        statusText.textContent = `Done — ${overdue.length} overdue device(s) exported.`;
+        progressWrap.classList.remove('visible');
+        generateBtn.disabled = false;
+        showToast(`Excel saved: ${outName}`, 'success');
+
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+        progressWrap.classList.remove('visible');
+        generateBtn.disabled = false;
+        statusText.textContent = 'An error occurred.';
+      }
+    }, 100);
+  });
+
+  function buildPreview(rows) {
+    if (!rows.length) {
+      emptyState.style.display = '';
+      previewTable.style.display = 'none';
+      rowCount.textContent = '0 rows';
+      return;
+    }
+
+    const cols = Object.keys(rows[0]).filter(c => !c.startsWith('_'));
+    const daysIdx = cols.indexOf('Days Since Last Seen');
+
+    // Head
+    tableHead.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+
+    // Body (cap at 500)
+    const display = rows.slice(0, 500);
+    tableBody.innerHTML = display.map(row => {
+      const days = parseInt(row['Days Since Last Seen']);
+      let cls = '';
+      if (days >= 90) cls = 'row-90';
+      else if (days >= 60) cls = 'row-60';
+      else if (days >= 30) cls = 'row-30';
+
+      const cells = cols.map(c => `<td>${row[c] ?? ''}</td>`).join('');
+      return `<tr class="${cls}">${cells}</tr>`;
+    }).join('');
+
+    emptyState.style.display = 'none';
+    previewTable.style.display = 'table';
+    rowCount.textContent = `${rows.length} row${rows.length !== 1 ? 's' : ''}`;
+  }
+
+  clearBtn.addEventListener('click', () => {
+    csvData = null;
+    fileName = '';
+    fileInput.value = '';
+    fileSelected.classList.remove('visible');
+    fileNameEl.textContent = '';
+    generateBtn.disabled = true;
+    progressWrap.classList.remove('visible');
+    emptyState.style.display = '';
+    previewTable.style.display = 'none';
+    tableHead.innerHTML = '';
+    tableBody.innerHTML = '';
+    rowCount.textContent = '0 rows';
+    statusText.textContent = '';
+  });
+
+  function showToast(msg, type = '') {
+    toast.textContent = msg;
+    toast.className = 'toast ' + type;
+    toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
