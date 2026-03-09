@@ -593,17 +593,34 @@
         // Build Excel
         const wb = XLSX.utils.book_new();
 
-        // Move Last Seen (Parsed) to first column
+        // Define preferred column order, remove platform
+        const allExcelCols = Object.keys(overdue[0] || {}).filter(c =>
+          !c.startsWith('_') && !c.toLowerCase().includes('platform')
+        );
+        const preferredOrder = [
+          'Last Seen (Parsed)', 'serial', 'dept', 'clinic',
+          'device home', 'imprivata email', 'imprivata user', 'home building'
+        ];
+        const excelOrdered = [];
+        for (const pref of preferredOrder) {
+          const match = allExcelCols.find(c => c.toLowerCase().includes(pref.toLowerCase()));
+          if (match && !excelOrdered.includes(match)) excelOrdered.push(match);
+        }
+        for (const c of allExcelCols) {
+          if (!excelOrdered.includes(c)) excelOrdered.push(c);
+        }
+
         const orderedRows = overdue.map(r => {
-          const { 'Last Seen (Parsed)': ls, _lastSeenDate, ...rest } = r;
-          return { 'Last Seen (Parsed)': ls, ...rest };
+          const row = {};
+          for (const c of excelOrdered) row[c] = r[c] ?? '';
+          return row;
         });
 
         const ws = XLSX.utils.json_to_sheet(orderedRows);
 
         // Style header row
         const range = XLSX.utils.decode_range(ws['!ref']);
-        const colHeaders = Object.keys(orderedRows[0] || {});
+        const colHeaders = excelOrdered;
         const daysColIdx = colHeaders.indexOf('Days Since Last Seen');
 
         // Set column widths
@@ -666,14 +683,41 @@
       return;
     }
 
-    const cols = Object.keys(rows[0]).filter(c => !c.startsWith('_'));
-    // Move Last Seen (Parsed) to first position
-    const lsIdx = cols.indexOf('Last Seen (Parsed)');
-    if (lsIdx > 0) cols.unshift(cols.splice(lsIdx, 1)[0]);
-    const daysIdx = cols.indexOf('Days Since Last Seen');
+    const allCols = Object.keys(rows[0]).filter(c => !c.startsWith('_'));
+
+    // Preferred column order (case-insensitive fuzzy match)
+    const preferred = [
+      'Last Seen (Parsed)',
+      'serial',
+      'dept',
+      'clinic',
+      'device home',
+      'imprivata email',
+      'imprivata user',
+      'home building',
+    ];
+
+    function findCol(keyword) {
+      return allCols.find(c => c.toLowerCase().includes(keyword.toLowerCase())) || null;
+    }
+
+    const ordered = [];
+    // Add preferred columns first, in order
+    for (const pref of preferred) {
+      const match = allCols.find(c => c.toLowerCase().includes(pref.toLowerCase()));
+      if (match && !ordered.includes(match)) ordered.push(match);
+    }
+    // Add remaining columns (except platform and internal cols)
+    for (const c of allCols) {
+      if (!ordered.includes(c) && !c.toLowerCase().includes('platform')) {
+        ordered.push(c);
+      }
+    }
+
+    const daysIdx = ordered.indexOf('Days Since Last Seen');
 
     // Head
-    tableHead.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+    tableHead.innerHTML = '<tr>' + ordered.map(c => `<th>${c}</th>`).join('') + '</tr>';
 
     // Body (cap at 500)
     const display = rows.slice(0, 500);
@@ -684,7 +728,7 @@
       else if (days >= 60) cls = 'row-60';
       else if (days >= 30) cls = 'row-30';
 
-      const cells = cols.map(c => `<td>${row[c] ?? ''}</td>`).join('');
+      const cells = ordered.map(c => `<td>${row[c] ?? ''}</td>`).join('');
       return `<tr class="${cls}">${cells}</tr>`;
     }).join('');
 
