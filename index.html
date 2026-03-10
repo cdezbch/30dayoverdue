@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 <style>
   :root {
     --bg: #0f172a;
@@ -400,7 +400,7 @@
       <h1>30 Day Overdue</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2</span>
+    <span class="badge">Chris H CMDI</span>
   </header>
 
   <div class="layout">
@@ -590,16 +590,13 @@
         // Build preview
         buildPreview(overdue);
 
-        // Build Excel
-        const wb = XLSX.utils.book_new();
-
         // Define preferred column order, remove platform
         const allExcelCols = Object.keys(overdue[0] || {}).filter(c =>
           !c.startsWith('_') && !c.toLowerCase().includes('platform')
         );
         const preferredOrder = [
           'Last Seen (Parsed)', 'serial', 'dept', 'clinic',
-          'device home', 'imprivata email', 'imprivata user', 'home building'
+          'device home', 'imprivata email', 'imprivata user', 'home building', 'dept manager email'
         ];
         const excelOrdered = [];
         for (const pref of preferredOrder) {
@@ -610,61 +607,62 @@
           if (!excelOrdered.includes(c)) excelOrdered.push(c);
         }
 
-        const orderedRows = overdue.map(r => {
-          const row = {};
-          for (const c of excelOrdered) row[c] = r[c] ?? '';
-          return row;
-        });
+        const outName = fileName.replace('.csv', '') + `_over_${days}_days.xlsx`;
 
-        const ws = XLSX.utils.json_to_sheet(orderedRows);
+        // Build Excel with ExcelJS (supports real cell styling)
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Overdue Devices');
+
+        // Add header row
+        ws.columns = excelOrdered.map(h => ({
+          header: h,
+          key: h,
+          width: Math.min(Math.max(h.length + 4, 14), 40)
+        }));
 
         // Style header row
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        const colHeaders = excelOrdered;
-        const daysColIdx = colHeaders.indexOf('Days Since Last Seen');
+        ws.getRow(1).eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
 
-        // Set column widths
-        ws['!cols'] = colHeaders.map(h => ({ wch: Math.min(Math.max(h.length + 4, 14), 40) }));
+        // Add data rows with color
+        for (const r of overdue) {
+          const rowData = {};
+          for (const c of excelOrdered) rowData[c] = r[c] ?? '';
+          const row = ws.addRow(rowData);
 
-        // Apply fills using HTML color values
-        for (let R = range.s.r + 1; R <= range.e.r; R++) {
-          const daysCell = ws[XLSX.utils.encode_cell({ r: R, c: daysColIdx })];
-          const daysVal = daysCell ? parseInt(daysCell.v) : null;
+          const daysVal = parseInt(r['Days Since Last Seen']);
+          let argbFill = null;
+          let fontArgb = 'FF000000';
+          if (daysVal >= 90)      { argbFill = 'FF7B2D8B'; fontArgb = 'FFFFFFFF'; }
+          else if (daysVal >= 60) { argbFill = 'FFFF8C00'; }
+          else if (daysVal >= 30) { argbFill = 'FFFFFF00'; }
 
-          let fgColor = null;
-          if (daysVal >= 90) fgColor = '7B2D8B';
-          else if (daysVal >= 60) fgColor = 'FF8C00';
-          else if (daysVal >= 30) fgColor = 'FFFF00';
-
-          if (fgColor) {
-            for (let C = range.s.c; C <= range.e.c; C++) {
-              const addr = XLSX.utils.encode_cell({ r: R, c: C });
-              if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-              const fontColor = fgColor === '7B2D8B' ? 'FFFFFF' : '000000';
-              ws[addr].s = { fill: { fgColor: { rgb: fgColor } }, font: { color: { rgb: fontColor } } };
-            }
+          if (argbFill) {
+            row.eachCell(cell => {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argbFill } };
+              cell.font = { color: { argb: fontArgb } };
+            });
           }
         }
 
-        // Header style
-        for (let C = range.s.c; C <= range.e.c; C++) {
-          const addr = XLSX.utils.encode_cell({ r: 0, c: C });
-          if (!ws[addr]) continue;
-          ws[addr].s = {
-            fill: { fgColor: { rgb: '1E293B' } },
-            font: { bold: true, color: { rgb: 'FFFFFF' } }
-          };
-        }
+        // Save and download
+        wb.xlsx.writeBuffer().then(buffer => {
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = outName;
+          a.click();
+          URL.revokeObjectURL(url);
 
-        XLSX.utils.book_append_sheet(wb, ws, 'Overdue Devices');
-
-        const outName = fileName.replace('.csv', '') + `_over_${days}_days.xlsx`;
-        XLSX.writeFile(wb, outName);
-
-        statusText.textContent = `Done — ${overdue.length} overdue device(s) exported.`;
-        progressWrap.classList.remove('visible');
-        generateBtn.disabled = false;
-        showToast(`Excel saved: ${outName}`, 'success');
+          statusText.textContent = `Done — ${overdue.length} overdue device(s) exported.`;
+          progressWrap.classList.remove('visible');
+          generateBtn.disabled = false;
+          showToast(`Excel saved: ${outName}`, 'success');
+        });
 
       } catch (err) {
         showToast('Error: ' + err.message, 'error');
@@ -695,6 +693,7 @@
       'imprivata email',
       'imprivata user',
       'home building',
+      'dept manager email',
     ];
 
     function findCol(keyword) {
