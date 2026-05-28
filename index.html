@@ -433,7 +433,7 @@
       <h1>30 Day Overdue</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.3</span>
+    <span class="badge">Chris H CMDI v2.04</span>
   </header>
 
   <div class="tabs">
@@ -539,7 +539,7 @@
       <div class="legend" id="f-columns-legend"></div>
 
       <button class="btn btn-primary" id="f-generate-btn" disabled>
-        🧹 Filter &amp; Download CSV
+        🧹 Filter &amp; Download Excel
       </button>
       <button class="btn btn-secondary" id="f-clear-btn">
         ✕ Clear
@@ -997,21 +997,50 @@
 
         fBuildPreview(filtered);
 
-        // Download as CSV
-        const csv = Papa.unparse({ fields: FILTER_COLUMNS, data: filtered });
-        const outName = fFileName.replace(/\.csv$/i, '') + '_filtered.csv';
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = outName;
-        a.click();
-        URL.revokeObjectURL(url);
+        // Build Excel with ExcelJS: frozen top row, auto-filter, blue header w/ white text
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Filtered');
 
-        fStatusText.textContent = `Done — ${filtered.length} row(s) exported.`;
-        fProgressWrap.classList.remove('visible');
-        fGenerateBtn.disabled = false;
-        showToast(`CSV saved: ${outName}`, 'success');
+        ws.columns = FILTER_COLUMNS.map(h => ({
+          header: h,
+          key: h,
+          width: Math.min(Math.max(h.length + 4, 14), 40)
+        }));
+
+        // Style header row: blue fill, white bold text, centered
+        ws.getRow(1).eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+
+        // Add data rows
+        for (const r of filtered) ws.addRow(r);
+
+        // Freeze the top row
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+        // Add auto-filter dropdowns across all columns
+        ws.autoFilter = {
+          from: { row: 1, column: 1 },
+          to: { row: 1, column: FILTER_COLUMNS.length }
+        };
+
+        const outName = fFileName.replace(/\.csv$/i, '') + '_filtered.xlsx';
+        wb.xlsx.writeBuffer().then(buffer => {
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = outName;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          fStatusText.textContent = `Done — ${filtered.length} row(s) exported.`;
+          fProgressWrap.classList.remove('visible');
+          fGenerateBtn.disabled = false;
+          showToast(`Excel saved: ${outName}`, 'success');
+        });
 
       } catch (err) {
         showToast('Error: ' + err.message, 'error');
