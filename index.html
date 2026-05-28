@@ -433,7 +433,7 @@
       <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.06</span>
+    <span class="badge">Chris H CMDI v2.07</span>
   </header>
 
   <div class="tabs">
@@ -1034,7 +1034,7 @@
           to: { row: 1, column: FILTER_COLUMNS.length }
         };
 
-        const outName = fFileName.replace(/\.csv$/i, '') + '_filtered.xlsx';
+        const outName = 'Device in wrong location.xlsx';
         wb.xlsx.writeBuffer().then(buffer => {
           const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
           const url = URL.createObjectURL(blob);
