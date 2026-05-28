@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f172a">
-<meta name="description" content="30 Day Overdue — Device Report Tool by Chris H CMDI">
-<title>30 Day Overdue</title>
+<meta name="description" content="CMDI GC Report Filter — Device Report Tool by Chris H CMDI">
+<title>CMDI GC Report Filter</title>
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -430,10 +430,10 @@
 <div class="app">
   <header>
     <div class="header-left">
-      <h1>30 Day Overdue</h1>
+      <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.04</span>
+    <span class="badge">Chris H CMDI v2.06</span>
   </header>
 
   <div class="tabs">
@@ -1001,11 +1001,19 @@
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Filtered');
 
-        ws.columns = FILTER_COLUMNS.map(h => ({
-          header: h,
-          key: h,
-          width: Math.min(Math.max(h.length + 4, 14), 40)
-        }));
+        // Size each column to the longest value in it (header or any cell)
+        ws.columns = FILTER_COLUMNS.map(h => {
+          let maxLen = h.length;
+          for (const r of filtered) {
+            const len = (r[h] ?? '').toString().length;
+            if (len > maxLen) maxLen = len;
+          }
+          return {
+            header: h,
+            key: h,
+            width: Math.min(Math.max(maxLen + 4, 14), 60)
+          };
+        });
 
         // Style header row: blue fill, white bold text, centered
         ws.getRow(1).eachCell(cell => {

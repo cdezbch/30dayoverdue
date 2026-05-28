@@ -1,7 +1,7 @@
 {
-  "name": "30 Day Overdue",
-  "short_name": "30DayOverdue",
-  "description": "Device report tool — filter and export overdue devices by last seen date.",
+  "name": "CMDI GC Report Filter",
+  "short_name": "GC Report Filter",
+  "description": "Device report tool — filter overdue devices and trim CSVs to key location columns.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
