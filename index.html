@@ -433,7 +433,7 @@
       <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.07</span>
+    <span class="badge">Chris H CMDI v2.08</span>
   </header>
 
   <div class="tabs">
@@ -706,7 +706,7 @@
           if (!excelOrdered.includes(c)) excelOrdered.push(c);
         }
 
-        const outName = fileName.replace('.csv', '') + `_over_${days}_days.xlsx`;
+        const outName = 'Overdue Report.xlsx';
 
         // Build Excel with ExcelJS (supports real cell styling)
         const wb = new ExcelJS.Workbook();
