@@ -132,6 +132,29 @@
     margin-bottom: 20px;
   }
 
+  /* Directions callout */
+  .directions {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+
+  .directions strong {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
   /* Drop zone */
   .dropzone {
     border: 2px dashed var(--border);
@@ -433,7 +456,7 @@
       <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.10</span>
+    <span class="badge">Chris H CMDI v2.12</span>
   </header>
 
   <div class="tabs">
@@ -448,6 +471,11 @@
     <!-- Left Panel -->
     <div class="card">
       <div class="card-title">Controls</div>
+
+      <div class="directions">
+        <strong>📥 Which report?</strong>
+        Export the <b>Device is Overdue</b> list from the GC Dashboard.
+      </div>
 
       <div class="dropzone" id="dropzone">
         <span class="dropzone-icon">📂</span>
@@ -524,6 +552,11 @@
     <div class="card">
       <div class="card-title">Controls</div>
 
+      <div class="directions">
+        <strong>📥 Which report?</strong>
+        Export the <b>Device in Wrong Location</b> list from the GC Dashboard.
+      </div>
+
       <div class="dropzone" id="f-dropzone">
         <span class="dropzone-icon">📂</span>
         <p>Drop your CSV here or <strong onclick="document.getElementById('f-file-input').click()">browse</strong></p>
@@ -580,6 +613,11 @@
     <!-- Left Panel -->
     <div class="card">
       <div class="card-title">Controls</div>
+
+      <div class="directions">
+        <strong>📥 Which report?</strong>
+        Export the report from <b>Imprivata Intelligence</b>.
+      </div>
 
       <div class="dropzone" id="c-dropzone">
         <span class="dropzone-icon">📂</span>
