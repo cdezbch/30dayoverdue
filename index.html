@@ -345,8 +345,26 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
     margin-bottom: 16px;
   }
+
+  .table-search {
+    flex: 1;
+    max-width: 280px;
+    min-width: 140px;
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .table-search:focus { border-color: var(--accent); }
 
   .row-count {
     font-family: 'Space Mono', monospace;
@@ -367,6 +385,12 @@
     min-height: 300px;
   }
 
+  /* Always-visible scrollbars so horizontal overflow is discoverable */
+  .table-wrap::-webkit-scrollbar { height: 10px; width: 10px; }
+  .table-wrap::-webkit-scrollbar-track { background: var(--card); }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
   table {
     width: 100%;
     border-collapse: collapse;
@@ -385,10 +409,23 @@
     border-bottom: 1px solid var(--border);
     font-family: 'Space Mono', monospace;
     font-size: 0.72rem;
+    cursor: pointer;
+    user-select: none;
+    z-index: 2;
   }
 
-  tbody tr { border-bottom: 1px solid rgba(51,65,85,0.5); transition: background 0.1s; }
-  tbody tr:hover { background: rgba(59,130,246,0.04); }
+  thead th:hover { color: var(--accent); }
+
+  /* First column stays visible while scrolling right */
+  th:first-child, td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--card);
+    z-index: 1;
+  }
+  thead th:first-child { background: var(--card2); z-index: 3; }
+
+  tbody tr { border-bottom: 1px solid rgba(51,65,85,0.5); }
   tbody tr:last-child { border-bottom: none; }
 
   td {
@@ -397,13 +434,24 @@
     color: var(--muted);
   }
 
+  /* Zebra striping — solid colors on column 1 so the sticky cell isn't see-through */
+  tbody tr:nth-child(even) td { background: rgba(148,163,184,0.045); }
+  tbody tr:nth-child(even) td:first-child { background: #171e2e; }
+
   /* Row highlighting (dark-friendly) */
-  tr.row-30 td { background: rgba(255,255,0,0.08); }
-  tr.row-60 td { background: rgba(255,140,0,0.1); }
-  tr.row-90 td { background: rgba(123,45,139,0.18); color: #fff; }
+  tbody tr.row-30 td { background: rgba(255,255,0,0.08); }
+  tbody tr.row-60 td { background: rgba(255,140,0,0.1); }
+  tbody tr.row-90 td { background: rgba(123,45,139,0.18); color: #fff; }
+  tbody tr.row-30 td:first-child { background: #242a24; }
+  tbody tr.row-60 td:first-child { background: #292423; }
+  tbody tr.row-90 td:first-child { background: #241c39; }
   tr.row-30 { border-left: 3px solid #cccc00; }
   tr.row-60 { border-left: 3px solid #ff8c00; }
   tr.row-90 { border-left: 3px solid #7b2d8b; }
+
+  /* Hover (declared last so it wins over zebra and highlights) */
+  tbody tr:hover td { background: rgba(59,130,246,0.08); }
+  tbody tr:hover td:first-child { background: #16223c; }
 
   .empty-state {
     padding: 60px 20px;
@@ -431,13 +479,58 @@
     transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
     z-index: 100;
     max-width: 320px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
   }
 
   .toast.show { transform: translateY(0); opacity: 1; }
   .toast.success { border-color: rgba(16,185,129,0.4); }
   .toast.error { border-color: rgba(239,68,68,0.4); }
+  .toast-close { color: var(--muted); font-weight: 600; flex-shrink: 0; }
 
-  #file-input, #f-file-input { display: none; }
+  input[type="file"] { display: none; }
+
+  /* Visible keyboard focus */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  .hint {
+    font-size: 0.78rem;
+    color: var(--warn);
+    line-height: 1.4;
+    margin: -8px 0 18px;
+  }
+
+  details.advanced { margin-bottom: 18px; }
+  details.advanced summary {
+    cursor: pointer;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  details.advanced summary:hover { color: var(--text); }
+
+  .key-wrap { position: relative; }
+  .key-wrap input { padding-right: 44px; }
+  .key-toggle {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 6px;
+    color: var(--muted);
+  }
 
   /* Tabs */
   .tabs {
@@ -445,6 +538,8 @@
     gap: 8px;
     margin-bottom: 24px;
     border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 
   .tab {
@@ -480,18 +575,18 @@
       <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.16</span>
+    <span class="badge">Chris H CMDI v2.17</span>
   </header>
 
-  <div class="tabs">
-    <button class="tab active" id="tab-overdue" data-view="view-overdue">⏱ Overdue Report</button>
-    <button class="tab" id="tab-filter" data-view="view-filter">🧹 Wrong Dock</button>
-    <button class="tab" id="tab-checkin" data-view="view-checkin">📋 Device Check In Status</button>
-    <button class="tab" id="tab-retired" data-view="view-retired">🗄 Retired Devices</button>
+  <div class="tabs" role="tablist" aria-label="Report type">
+    <button class="tab active" id="tab-overdue" data-view="view-overdue" role="tab" aria-selected="true" aria-controls="view-overdue">⏱ Overdue Report</button>
+    <button class="tab" id="tab-filter" data-view="view-filter" role="tab" aria-selected="false" aria-controls="view-filter">🧹 Wrong Dock</button>
+    <button class="tab" id="tab-checkin" data-view="view-checkin" role="tab" aria-selected="false" aria-controls="view-checkin">📋 Device Check In Status</button>
+    <button class="tab" id="tab-retired" data-view="view-retired" role="tab" aria-selected="false" aria-controls="view-retired">🗄 Retired Devices</button>
   </div>
 
   <!-- View: Overdue Report -->
-  <div class="view active" id="view-overdue">
+  <div class="view active" id="view-overdue" role="tabpanel" aria-labelledby="tab-overdue">
   <div class="layout">
     <!-- Left Panel -->
     <div class="card">
@@ -502,7 +597,7 @@
         Export the <b>Device is Overdue</b> list from the GC Dashboard.
       </div>
 
-      <div class="dropzone" id="dropzone">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload overdue report CSV">
         <span class="dropzone-icon">📂</span>
         <p>Drop your CSV here or <strong onclick="document.getElementById('file-input').click()">browse</strong></p>
         <p style="margin-top:6px;font-size:0.8rem;">Device report CSV from your MDM</p>
@@ -536,7 +631,10 @@
       </div>
 
       <button class="btn btn-primary" id="generate-btn" disabled>
-        ⚡ Generate Excel
+        ⚡ Generate Preview
+      </button>
+      <button class="btn btn-secondary" id="download-btn" disabled>
+        📥 Download Excel
       </button>
       <button class="btn btn-secondary" id="clear-btn">
         ✕ Clear
@@ -552,6 +650,7 @@
     <div class="card">
       <div class="preview-header">
         <div class="card-title" style="margin-bottom:0;">Device Preview</div>
+        <input type="text" class="table-search" id="search-input" placeholder="🔍 Filter rows…" autocomplete="off" aria-label="Filter preview rows">
         <span class="row-count" id="row-count">0 rows</span>
       </div>
 
@@ -571,7 +670,7 @@
   <!-- /View: Overdue Report -->
 
   <!-- View: Column Filter -->
-  <div class="view" id="view-filter">
+  <div class="view" id="view-filter" role="tabpanel" aria-labelledby="tab-filter">
   <div class="layout">
     <!-- Left Panel -->
     <div class="card">
@@ -582,7 +681,7 @@
         Export the <b>Device in Wrong Location</b> list from the GC Dashboard.
       </div>
 
-      <div class="dropzone" id="f-dropzone">
+      <div class="dropzone" id="f-dropzone" tabindex="0" role="button" aria-label="Upload wrong location report CSV">
         <span class="dropzone-icon">📂</span>
         <p>Drop your CSV here or <strong onclick="document.getElementById('f-file-input').click()">browse</strong></p>
         <p style="margin-top:6px;font-size:0.8rem;">Keeps only the device location columns</p>
@@ -598,7 +697,10 @@
       <div class="legend" id="f-columns-legend"></div>
 
       <button class="btn btn-primary" id="f-generate-btn" disabled>
-        🧹 Filter &amp; Download Excel
+        🧹 Filter &amp; Preview
+      </button>
+      <button class="btn btn-secondary" id="f-export-btn" disabled>
+        📥 Download Excel
       </button>
       <button class="btn btn-secondary" id="f-clear-btn">
         ✕ Clear
@@ -614,6 +716,7 @@
     <div class="card">
       <div class="preview-header">
         <div class="card-title" style="margin-bottom:0;">Filtered Preview</div>
+        <input type="text" class="table-search" id="f-search-input" placeholder="🔍 Filter rows…" autocomplete="off" aria-label="Filter preview rows">
         <span class="row-count" id="f-row-count">0 rows</span>
       </div>
 
@@ -633,7 +736,7 @@
   <!-- /View: Column Filter -->
 
   <!-- View: Device Check In Status -->
-  <div class="view" id="view-checkin">
+  <div class="view" id="view-checkin" role="tabpanel" aria-labelledby="tab-checkin">
   <div class="layout">
     <!-- Left Panel -->
     <div class="card">
@@ -644,7 +747,7 @@
         Export the report from <b>Imprivata Intelligence</b>.
       </div>
 
-      <div class="dropzone" id="c-dropzone">
+      <div class="dropzone" id="c-dropzone" tabindex="0" role="button" aria-label="Upload check-in status report CSV">
         <span class="dropzone-icon">📂</span>
         <p>Drop your CSV here or <strong onclick="document.getElementById('c-file-input').click()">browse</strong></p>
         <p style="margin-top:6px;font-size:0.8rem;">Keeps only the check-in status columns</p>
@@ -660,7 +763,10 @@
       <div class="legend" id="c-columns-legend"></div>
 
       <button class="btn btn-primary" id="c-generate-btn" disabled>
-        📋 Filter &amp; Download Excel
+        📋 Filter &amp; Preview
+      </button>
+      <button class="btn btn-secondary" id="c-export-btn" disabled>
+        📥 Download Excel
       </button>
       <button class="btn btn-secondary" id="c-clear-btn">
         ✕ Clear
@@ -676,6 +782,7 @@
     <div class="card">
       <div class="preview-header">
         <div class="card-title" style="margin-bottom:0;">Filtered Preview</div>
+        <input type="text" class="table-search" id="c-search-input" placeholder="🔍 Filter rows…" autocomplete="off" aria-label="Filter preview rows">
         <span class="row-count" id="c-row-count">0 rows</span>
       </div>
 
@@ -695,7 +802,7 @@
   <!-- /View: Device Check In Status -->
 
   <!-- View: Retired Devices (API) -->
-  <div class="view" id="view-retired">
+  <div class="view" id="view-retired" role="tabpanel" aria-labelledby="tab-retired">
   <div class="layout">
     <!-- Left Panel -->
     <div class="card">
@@ -708,18 +815,25 @@
 
       <div class="field">
         <label>API Key</label>
-        <input type="password" id="r-api-key" placeholder="Paste your MAM API key" autocomplete="off">
+        <div class="key-wrap">
+          <input type="password" id="r-api-key" placeholder="Paste your MAM API key" autocomplete="off">
+          <button type="button" class="key-toggle" id="r-key-toggle" title="Show/hide key" aria-label="Show or hide API key">👁</button>
+        </div>
       </div>
 
       <div class="checkbox-row">
         <input type="checkbox" id="r-remember">
         <label for="r-remember">Remember key on this device</label>
       </div>
+      <p class="hint">⚠ Saved unencrypted in this browser — leave unchecked on shared workstations.</p>
 
-      <div class="field">
-        <label>Endpoint URL</label>
-        <input type="text" id="r-endpoint" value="https://www.groundctl.com/api/v1/devices/find/all" autocomplete="off">
-      </div>
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <div class="field" style="margin-top:12px;">
+          <label>Endpoint URL</label>
+          <input type="text" id="r-endpoint" value="https://www.groundctl.com/api/v1/devices/find/all" autocomplete="off">
+        </div>
+      </details>
 
       <button class="btn btn-primary" id="r-fetch-btn">
         🔄 Fetch Retired Devices
@@ -741,6 +855,7 @@
     <div class="card">
       <div class="preview-header">
         <div class="card-title" style="margin-bottom:0;">Retired Devices</div>
+        <input type="text" class="table-search" id="r-search-input" placeholder="🔍 Filter rows…" autocomplete="off" aria-label="Filter preview rows">
         <span class="row-count" id="r-row-count">0 rows</span>
       </div>
 
@@ -782,17 +897,20 @@
   const tableBody = document.getElementById('table-body');
   const toast = document.getElementById('toast');
 
-  // Drag & drop
+  // Drag & drop + keyboard
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
   dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
   dropzone.addEventListener('drop', e => {
     e.preventDefault();
     dropzone.classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.csv')) loadFile(file);
+    if (file && /\.csv$/i.test(file.name)) loadFile(file);
     else showToast('Please drop a CSV file.', 'error');
   });
   dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
   fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
 
   function loadFile(file) {
@@ -825,6 +943,115 @@
     const d = new Date(cleaned);
     return isNaN(d.getTime()) ? null : d;
   }
+
+  // "Base" -> "Base 2026-06-12.xlsx" so weekly exports don't collide in Downloads
+  function datedName(base) {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return `${base} ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.xlsx`;
+  }
+
+  function downloadXlsx(wb, name) {
+    return wb.xlsx.writeBuffer().then(buffer => {
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  /* ============================================================
+     Sortable, searchable preview table — shared by all tabs.
+     Click a header to sort (numeric/date aware, blanks last);
+     the search box filters across every column.
+     ============================================================ */
+  const PREVIEW_CAP = 500;
+  function createPreview({ headEl, bodyEl, tableEl, emptyEl, countEl, searchEl, rowClass }) {
+    let rows = [], columns = [], sortCol = null, sortDir = 1;
+
+    searchEl.addEventListener('input', () => { if (rows.length) render(); });
+
+    function compare(a, b) {
+      const va = (a[sortCol] ?? '').toString(), vb = (b[sortCol] ?? '').toString();
+      if (va === '' && vb !== '') return 1;
+      if (vb === '' && va !== '') return -1;
+      const na = Number(va), nb = Number(vb);
+      if (va !== '' && !isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+      const da = Date.parse(va), db = Date.parse(vb);
+      if (!isNaN(da) && !isNaN(db)) return (da - db) * sortDir;
+      return va.localeCompare(vb, undefined, { sensitivity: 'base' }) * sortDir;
+    }
+
+    function render() {
+      const q = searchEl.value.trim().toLowerCase();
+      let vis = q
+        ? rows.filter(r => columns.some(c => (r[c] ?? '').toString().toLowerCase().includes(q)))
+        : rows;
+      if (sortCol) vis = [...vis].sort(compare);
+
+      headEl.innerHTML = '<tr>' + columns.map(c => {
+        const arrow = sortCol === c ? (sortDir > 0 ? ' ▲' : ' ▼') : '';
+        return `<th title="Click to sort">${c}${arrow}</th>`;
+      }).join('') + '</tr>';
+      [...headEl.querySelectorAll('th')].forEach((th, i) => th.addEventListener('click', () => {
+        const c = columns[i];
+        if (sortCol === c) sortDir = -sortDir; else { sortCol = c; sortDir = 1; }
+        render();
+      }));
+
+      const display = vis.slice(0, PREVIEW_CAP);
+      bodyEl.innerHTML = display.map(row => {
+        const cls = rowClass ? rowClass(row) : '';
+        return `<tr class="${cls}">` + columns.map(c => `<td>${row[c] ?? ''}</td>`).join('') + '</tr>';
+      }).join('');
+
+      emptyEl.style.display = 'none';
+      tableEl.style.display = 'table';
+      countEl.textContent =
+        display.length < vis.length ? `showing ${display.length} of ${vis.length} rows — export for all` :
+        q ? `${vis.length} of ${rows.length} rows` :
+        `${vis.length} row${vis.length !== 1 ? 's' : ''}`;
+    }
+
+    function clearDom() {
+      headEl.innerHTML = '';
+      bodyEl.innerHTML = '';
+      emptyEl.style.display = '';
+      tableEl.style.display = 'none';
+      countEl.textContent = '0 rows';
+    }
+
+    return {
+      show(newRows, newCols) {
+        rows = newRows; columns = newCols;
+        sortCol = null; sortDir = 1; searchEl.value = '';
+        rows.length ? render() : clearDom();
+      },
+      clear() { rows = []; columns = []; sortCol = null; searchEl.value = ''; clearDom(); }
+    };
+  }
+
+  const downloadBtn = document.getElementById('download-btn');
+  const overduePreview = createPreview({
+    headEl: tableHead, bodyEl: tableBody,
+    tableEl: previewTable, emptyEl: emptyState,
+    countEl: rowCount, searchEl: document.getElementById('search-input'),
+    rowClass: row => {
+      const days = parseInt(row['Days Since Last Seen']);
+      if (days >= 90) return 'row-90';
+      if (days >= 60) return 'row-60';
+      if (days >= 30) return 'row-30';
+      return '';
+    }
+  });
+  let overdueState = null; // { rows, cols } from the last generate
+
+  // Remember the threshold between visits
+  const savedDays = localStorage.getItem('gc_days');
+  if (savedDays) daysInput.value = savedDays;
+  daysInput.addEventListener('change', () => localStorage.setItem('gc_days', daysInput.value));
 
   generateBtn.addEventListener('click', () => {
     if (!csvData) return;
@@ -870,11 +1097,6 @@
             return out;
           });
 
-        statusText.textContent = `Found ${overdue.length} overdue device(s). Building Excel...`;
-
-        // Build preview
-        buildPreview(overdue);
-
         // Define preferred column order, remove platform
         const allExcelCols = Object.keys(overdue[0] || {}).filter(c =>
           !c.startsWith('_') && !c.toLowerCase().includes('platform')
@@ -892,66 +1114,14 @@
           if (!excelOrdered.includes(c)) excelOrdered.push(c);
         }
 
-        const outName = 'Overdue Report.xlsx';
+        overdueState = { rows: overdue, cols: excelOrdered };
+        overduePreview.show(overdue, excelOrdered);
 
-        // Build Excel with ExcelJS (supports real cell styling)
-        const wb = new ExcelJS.Workbook();
-        const ws = wb.addWorksheet('Overdue Devices');
-
-        // Add header row
-        ws.columns = excelOrdered.map(h => ({
-          header: h,
-          key: h,
-          width: Math.min(Math.max(h.length + 4, 14), 40)
-        }));
-
-        // Style header row
-        ws.getRow(1).eachCell(cell => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        });
-
-        // Add data rows with color
-        for (const r of overdue) {
-          const rowData = {};
-          for (const c of excelOrdered) rowData[c] = r[c] ?? '';
-          const row = ws.addRow(rowData);
-
-          const daysVal = parseInt(r['Days Since Last Seen']);
-          let argbFill = null;
-          let fontArgb = 'FF000000';
-          if (daysVal >= 90)      { argbFill = 'FF7B2D8B'; fontArgb = 'FFFFFFFF'; }
-          else if (daysVal >= 60) { argbFill = 'FFFF8C00'; }
-          else if (daysVal >= 30) { argbFill = 'FFFFFF00'; }
-
-          if (argbFill) {
-            row.eachCell(cell => {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argbFill } };
-              cell.font = { color: { argb: fontArgb } };
-            });
-          }
-        }
-
-        // Freeze the top row + auto-filter dropdowns across all columns
-        ws.views = [{ state: 'frozen', ySplit: 1 }];
-        ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: excelOrdered.length } };
-
-        // Save and download
-        wb.xlsx.writeBuffer().then(buffer => {
-          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = outName;
-          a.click();
-          URL.revokeObjectURL(url);
-
-          statusText.textContent = `Done — ${overdue.length} overdue device(s) exported.`;
-          progressWrap.classList.remove('visible');
-          generateBtn.disabled = false;
-          showToast(`Excel saved: ${outName}`, 'success');
-        });
+        statusText.textContent = `Preview ready — ${overdue.length} overdue device(s).`;
+        progressWrap.classList.remove('visible');
+        generateBtn.disabled = false;
+        downloadBtn.disabled = overdue.length === 0;
+        showToast(`Found ${overdue.length} overdue device(s).`, 'success');
 
       } catch (err) {
         showToast('Error: ' + err.message, 'error');
@@ -962,68 +1132,57 @@
     }, 100);
   });
 
-  function buildPreview(rows) {
-    if (!rows.length) {
-      emptyState.style.display = '';
-      previewTable.style.display = 'none';
-      rowCount.textContent = '0 rows';
-      return;
-    }
+  downloadBtn.addEventListener('click', () => {
+    if (!overdueState || !overdueState.rows.length) return;
+    const { rows, cols } = overdueState;
 
-    const allCols = Object.keys(rows[0]).filter(c => !c.startsWith('_'));
+    // Build Excel with ExcelJS (supports real cell styling)
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Overdue Devices');
 
-    // Preferred column order (case-insensitive fuzzy match)
-    const preferred = [
-      'Last Seen (Parsed)',
-      'serial',
-      'dept',
-      'clinic',
-      'device home',
-      'imprivata email',
-      'imprivata user',
-      'home building',
-      'dept manager email',
-    ];
+    ws.columns = cols.map(h => ({
+      header: h,
+      key: h,
+      width: Math.min(Math.max(h.length + 4, 14), 40)
+    }));
 
-    function findCol(keyword) {
-      return allCols.find(c => c.toLowerCase().includes(keyword.toLowerCase())) || null;
-    }
+    ws.getRow(1).eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
 
-    const ordered = [];
-    // Add preferred columns first, in order
-    for (const pref of preferred) {
-      const match = allCols.find(c => c.toLowerCase().includes(pref.toLowerCase()));
-      if (match && !ordered.includes(match)) ordered.push(match);
-    }
-    // Add remaining columns (except platform and internal cols)
-    for (const c of allCols) {
-      if (!ordered.includes(c) && !c.toLowerCase().includes('platform')) {
-        ordered.push(c);
+    // Add data rows with color
+    for (const r of rows) {
+      const rowData = {};
+      for (const c of cols) rowData[c] = r[c] ?? '';
+      const row = ws.addRow(rowData);
+
+      const daysVal = parseInt(r['Days Since Last Seen']);
+      let argbFill = null;
+      let fontArgb = 'FF000000';
+      if (daysVal >= 90)      { argbFill = 'FF7B2D8B'; fontArgb = 'FFFFFFFF'; }
+      else if (daysVal >= 60) { argbFill = 'FFFF8C00'; }
+      else if (daysVal >= 30) { argbFill = 'FFFFFF00'; }
+
+      if (argbFill) {
+        row.eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argbFill } };
+          cell.font = { color: { argb: fontArgb } };
+        });
       }
     }
 
-    const daysIdx = ordered.indexOf('Days Since Last Seen');
+    // Freeze the top row + auto-filter dropdowns across all columns
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
 
-    // Head
-    tableHead.innerHTML = '<tr>' + ordered.map(c => `<th>${c}</th>`).join('') + '</tr>';
-
-    // Body (cap at 500)
-    const display = rows.slice(0, 500);
-    tableBody.innerHTML = display.map(row => {
-      const days = parseInt(row['Days Since Last Seen']);
-      let cls = '';
-      if (days >= 90) cls = 'row-90';
-      else if (days >= 60) cls = 'row-60';
-      else if (days >= 30) cls = 'row-30';
-
-      const cells = ordered.map(c => `<td>${row[c] ?? ''}</td>`).join('');
-      return `<tr class="${cls}">${cells}</tr>`;
-    }).join('');
-
-    emptyState.style.display = 'none';
-    previewTable.style.display = 'table';
-    rowCount.textContent = `${rows.length} row${rows.length !== 1 ? 's' : ''}`;
-  }
+    const outName = datedName('Overdue Report');
+    downloadXlsx(wb, outName).then(() => {
+      statusText.textContent = `Exported ${rows.length} overdue device(s).`;
+      showToast(`Excel saved: ${outName}`, 'success');
+    });
+  });
 
   clearBtn.addEventListener('click', () => {
     csvData = null;
@@ -1032,34 +1191,59 @@
     fileSelected.classList.remove('visible');
     fileNameEl.textContent = '';
     generateBtn.disabled = true;
+    downloadBtn.disabled = true;
+    overdueState = null;
     progressWrap.classList.remove('visible');
-    emptyState.style.display = '';
-    previewTable.style.display = 'none';
-    tableHead.innerHTML = '';
-    tableBody.innerHTML = '';
-    rowCount.textContent = '0 rows';
+    overduePreview.clear();
     statusText.textContent = '';
   });
 
+  toast.addEventListener('click', () => toast.classList.remove('show'));
+
   function showToast(msg, type = '') {
-    toast.textContent = msg;
+    toast.innerHTML = `<span>${msg}</span><span class="toast-close" aria-hidden="true">✕</span>`;
     toast.className = 'toast ' + type;
     toast.classList.add('show');
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => toast.classList.remove('show'), 3500);
+    // Errors stay until clicked away; everything else auto-hides
+    if (type !== 'error') toast._t = setTimeout(() => toast.classList.remove('show'), 3500);
   }
 
   /* ============================================================
      Tab switching
      ============================================================ */
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(tab.dataset.view).classList.add('active');
+  const TAB_STORAGE = 'gc_active_tab';
+
+  function activateTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
     });
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    document.getElementById(tab.dataset.view).classList.add('active');
+    localStorage.setItem(TAB_STORAGE, tab.id);
+  }
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => activateTab(tab));
   });
+
+  // Arrow keys move between tabs
+  document.querySelector('.tabs').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = [...document.querySelectorAll('.tab')];
+    const i = tabs.indexOf(document.activeElement);
+    if (i === -1) return;
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+    next.focus();
+    activateTab(next);
+  });
+
+  // Reopen the tab from the last visit
+  const savedTab = localStorage.getItem(TAB_STORAGE);
+  if (savedTab && document.getElementById(savedTab)) activateTab(document.getElementById(savedTab));
 
   // Normalize a header for fuzzy comparison (strip spaces, slashes, punctuation)
   function normalizeHeader(s) {
@@ -1091,23 +1275,34 @@
     const tableHead = el('table-head');
     const tableBody = el('table-body');
     const columnsLegend = el('columns-legend');
+    const exportBtn = el('export-btn');
+
+    const preview = createPreview({
+      headEl: tableHead, bodyEl: tableBody,
+      tableEl: previewTable, emptyEl: emptyState,
+      countEl: rowCountEl, searchEl: el('search-input')
+    });
+    let filteredRows = null;
 
     // Show the target columns in the left-panel legend
     columnsLegend.innerHTML = columns.map(c =>
       `<div class="legend-item"><div class="swatch" style="background:var(--accent);"></div><span>${c}</span></div>`
     ).join('');
 
-    // Drag & drop
+    // Drag & drop + keyboard
     dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
     dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
     dropzone.addEventListener('drop', e => {
       e.preventDefault();
       dropzone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && file.name.endsWith('.csv')) loadFile(file);
+      if (file && /\.csv$/i.test(file.name)) loadFile(file);
       else showToast('Please drop a CSV file.', 'error');
     });
     dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
     fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
 
     function loadFile(file) {
@@ -1166,7 +1361,7 @@
           }
 
           // Build filtered rows: only the target columns, in the requested order
-          const filtered = csv.map(row => {
+          filteredRows = csv.map(row => {
             const out = {};
             for (const target of columns) {
               const src = colMap[target];
@@ -1175,50 +1370,12 @@
             return out;
           });
 
-          buildPreview(filtered);
+          preview.show(filteredRows, columns);
 
-          // Build Excel with ExcelJS: frozen top row, auto-filter, blue header w/ white text
-          const wb = new ExcelJS.Workbook();
-          const ws = wb.addWorksheet(sheetName || 'Filtered');
-
-          // Size each column to the longest value in it (header or any cell)
-          ws.columns = columns.map(h => {
-            let maxLen = h.length;
-            for (const r of filtered) {
-              const len = (r[h] ?? '').toString().length;
-              if (len > maxLen) maxLen = len;
-            }
-            return { header: h, key: h, width: Math.min(Math.max(maxLen + 4, 14), 60) };
-          });
-
-          // Style header row: blue fill, white bold text, centered
-          ws.getRow(1).eachCell(cell => {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          });
-
-          for (const r of filtered) ws.addRow(r);
-
-          // Freeze the top row + auto-filter dropdowns across all columns
-          ws.views = [{ state: 'frozen', ySplit: 1 }];
-          ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
-
-          const fileOut = `${outName}.xlsx`;
-          wb.xlsx.writeBuffer().then(buffer => {
-            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileOut;
-            a.click();
-            URL.revokeObjectURL(url);
-
-            statusText.textContent = `Done — ${filtered.length} row(s) exported.`;
-            progressWrap.classList.remove('visible');
-            generateBtn.disabled = false;
-            showToast(`Excel saved: ${fileOut}`, 'success');
-          });
+          statusText.textContent = `Preview ready — ${filteredRows.length} row(s).`;
+          progressWrap.classList.remove('visible');
+          generateBtn.disabled = false;
+          exportBtn.disabled = filteredRows.length === 0;
 
         } catch (err) {
           showToast('Error: ' + err.message, 'error');
@@ -1229,39 +1386,52 @@
       }, 100);
     });
 
-    function buildPreview(rows) {
-      if (!rows.length) {
-        emptyState.style.display = '';
-        previewTable.style.display = 'none';
-        rowCountEl.textContent = '0 rows';
-        return;
-      }
+    // Build Excel with ExcelJS: frozen top row, auto-filter, blue header w/ white text
+    exportBtn.addEventListener('click', () => {
+      if (!filteredRows || !filteredRows.length) return;
 
-      tableHead.innerHTML = '<tr>' + columns.map(c => `<th>${c}</th>`).join('') + '</tr>';
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(sheetName || 'Filtered');
 
-      const display = rows.slice(0, 500);
-      tableBody.innerHTML = display.map(row =>
-        '<tr>' + columns.map(c => `<td>${row[c] ?? ''}</td>`).join('') + '</tr>'
-      ).join('');
+      // Size each column to the longest value in it (header or any cell)
+      ws.columns = columns.map(h => {
+        let maxLen = h.length;
+        for (const r of filteredRows) {
+          const len = (r[h] ?? '').toString().length;
+          if (len > maxLen) maxLen = len;
+        }
+        return { header: h, key: h, width: Math.min(Math.max(maxLen + 4, 14), 60) };
+      });
 
-      emptyState.style.display = 'none';
-      previewTable.style.display = 'table';
-      rowCountEl.textContent = `${rows.length} row${rows.length !== 1 ? 's' : ''}`;
-    }
+      ws.getRow(1).eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      for (const r of filteredRows) ws.addRow(r);
+
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } };
+
+      const fileOut = datedName(outName);
+      downloadXlsx(wb, fileOut).then(() => {
+        statusText.textContent = `Exported ${filteredRows.length} row(s).`;
+        showToast(`Excel saved: ${fileOut}`, 'success');
+      });
+    });
 
     clearBtn.addEventListener('click', () => {
       csv = null;
+      filteredRows = null;
       srcName = '';
       fileInput.value = '';
       fileSelected.classList.remove('visible');
       fileNameEl.textContent = '';
       generateBtn.disabled = true;
+      exportBtn.disabled = true;
       progressWrap.classList.remove('visible');
-      emptyState.style.display = '';
-      previewTable.style.display = 'none';
-      tableHead.innerHTML = '';
-      tableBody.innerHTML = '';
-      rowCountEl.textContent = '0 rows';
+      preview.clear();
       statusText.textContent = '';
     });
   }
@@ -1307,9 +1477,22 @@
     const previewTable = document.getElementById('r-preview-table');
     const tableHead = document.getElementById('r-table-head');
     const tableBody = document.getElementById('r-table-body');
+    const keyToggle = document.getElementById('r-key-toggle');
 
     let retiredRows = [];
     let retiredCols = [];
+
+    const preview = createPreview({
+      headEl: tableHead, bodyEl: tableBody,
+      tableEl: previewTable, emptyEl: emptyState,
+      countEl: rowCountEl, searchEl: document.getElementById('r-search-input')
+    });
+
+    keyToggle.addEventListener('click', () => {
+      const hidden = keyInput.type === 'password';
+      keyInput.type = hidden ? 'text' : 'password';
+      keyToggle.textContent = hidden ? '🙈' : '👁';
+    });
 
     // Restore remembered key
     const savedKey = localStorage.getItem(KEY_STORAGE);
@@ -1389,9 +1572,10 @@
 
         retiredRows = list.filter(isRetired).map(flattenDevice);
         retiredCols = orderColumns(retiredRows);
-        buildPreview();
+        preview.show(retiredRows, retiredCols);
 
-        statusText.textContent = `Done — ${retiredRows.length} retired of ${list.length} total devices.`;
+        const at = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        statusText.textContent = `Fetched ${at} — ${retiredRows.length} retired of ${list.length} total devices.`;
         exportBtn.disabled = retiredRows.length === 0;
         showToast(`Found ${retiredRows.length} retired device(s).`, 'success');
       } catch (err) {
@@ -1406,22 +1590,6 @@
         fetchBtn.disabled = false;
       }
     });
-
-    function buildPreview() {
-      if (!retiredRows.length) {
-        emptyState.style.display = '';
-        previewTable.style.display = 'none';
-        rowCountEl.textContent = '0 rows';
-        return;
-      }
-      tableHead.innerHTML = '<tr>' + retiredCols.map(c => `<th>${c}</th>`).join('') + '</tr>';
-      tableBody.innerHTML = retiredRows.slice(0, 500).map(row =>
-        '<tr>' + retiredCols.map(c => `<td>${row[c] ?? ''}</td>`).join('') + '</tr>'
-      ).join('');
-      emptyState.style.display = 'none';
-      previewTable.style.display = 'table';
-      rowCountEl.textContent = `${retiredRows.length} row${retiredRows.length !== 1 ? 's' : ''}`;
-    }
 
     exportBtn.addEventListener('click', () => {
       if (!retiredRows.length) return;
@@ -1461,16 +1629,8 @@
       ws.views = [{ state: 'frozen', ySplit: 1 }];
       ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: excelCols.length } };
 
-      wb.xlsx.writeBuffer().then(buffer => {
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Retired Devices.xlsx';
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('Excel saved: Retired Devices.xlsx', 'success');
-      });
+      const fileOut = datedName('Retired Devices');
+      downloadXlsx(wb, fileOut).then(() => showToast(`Excel saved: ${fileOut}`, 'success'));
     });
 
     clearBtn.addEventListener('click', () => {
@@ -1478,11 +1638,7 @@
       retiredCols = [];
       exportBtn.disabled = true;
       progressWrap.classList.remove('visible');
-      emptyState.style.display = '';
-      previewTable.style.display = 'none';
-      tableHead.innerHTML = '';
-      tableBody.innerHTML = '';
-      rowCountEl.textContent = '0 rows';
+      preview.clear();
       statusText.textContent = '';
     });
   })();
