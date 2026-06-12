@@ -56,9 +56,9 @@
   .app {
     position: relative;
     z-index: 1;
-    max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: 24px clamp(16px, 2vw, 40px);
   }
 
   /* Header */
@@ -66,7 +66,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 36px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
   }
@@ -358,7 +358,9 @@
     overflow: auto;
     border-radius: 10px;
     border: 1px solid var(--border);
-    max-height: 500px;
+    /* Fill the rest of the browser window instead of a fixed 500px */
+    max-height: calc(100vh - 300px);
+    min-height: 300px;
   }
 
   table {
@@ -474,7 +476,7 @@
       <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.14</span>
+    <span class="badge">Chris H CMDI v2.15</span>
   </header>
 
   <div class="tabs">
@@ -1354,13 +1356,14 @@
 
     function orderColumns(rows) {
       const all = [...new Set(rows.flatMap(r => Object.keys(r)))];
-      const preferred = ['serial', 'name', 'asset', 'model', 'status', 'retire', 'last', 'dept', 'clinic', 'home'];
-      const ordered = [];
-      for (const pref of preferred) {
-        for (const c of all) {
-          if (!ordered.includes(c) && c.toLowerCase().includes(pref)) ordered.push(c);
-        }
-      }
+      // Fixed order matching the standard Retired Devices report layout
+      const preferred = [
+        'serial', 'name', 'modelName', 'lastLaunchpadName', 'Imprivata Display Name',
+        'status', 'retireReason', 'lastSeen', 'Device Home', 'os', 'firstSeen',
+        'activeSince', 'Phone Notes', 'Imprivata Email', 'Launchpad', 'Device User',
+        'Out of Service'
+      ];
+      const ordered = preferred.filter(p => all.includes(p));
       for (const c of all) if (!ordered.includes(c)) ordered.push(c);
       return ordered;
     }

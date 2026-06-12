@@ -49,5 +49,17 @@ foreach ($r in $rows) {
         if (-not $allCols.Contains($p)) { $allCols.Add($p) }
     }
 }
-$rows | Select-Object $allCols | Export-Csv -Path $OutFile -NoTypeInformation -Encoding UTF8
+
+# Column order matching the "Retired Devices" report; any fields not listed
+# here are appended after, in the order they came back from the API
+$preferredOrder = @(
+    'serial', 'name', 'modelName', 'lastLaunchpadName', 'Imprivata Display Name',
+    'status', 'retireReason', 'lastSeen', 'Device Home', 'os', 'firstSeen',
+    'activeSince', 'Phone Notes', 'Imprivata Email', 'Launchpad', 'Device User',
+    'Out of Service'
+)
+$ordered = @($preferredOrder | Where-Object { $allCols -contains $_ }) +
+           @($allCols | Where-Object { $preferredOrder -notcontains $_ })
+
+$rows | Select-Object $ordered | Export-Csv -Path $OutFile -NoTypeInformation -Encoding UTF8
 Write-Host "Saved to $OutFile"
