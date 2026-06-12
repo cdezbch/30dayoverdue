@@ -1420,15 +1420,18 @@
       if (!retiredRows.length) return;
 
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('Retired Devices');
+      const ws = wb.addWorksheet(`Retired Devices (${retiredRows.length})`);
 
-      ws.columns = retiredCols.map(h => {
+      // Column A numbers every device, so the last row shows the total count
+      const excelCols = ['#', ...retiredCols];
+      ws.columns = excelCols.map(h => {
         let maxLen = h.length;
         for (const r of retiredRows) {
           const len = (r[h] ?? '').toString().length;
           if (len > maxLen) maxLen = len;
         }
-        return { header: h, key: h, width: Math.min(Math.max(maxLen + 4, 14), 60) };
+        const width = h === '#' ? 7 : Math.min(Math.max(maxLen + 4, 14), 60);
+        return { header: h, key: h, width };
       });
 
       ws.getRow(1).eachCell(cell => {
@@ -1437,14 +1440,19 @@
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
 
-      for (const r of retiredRows) {
-        const rowData = {};
+      retiredRows.forEach((r, i) => {
+        const rowData = { '#': i + 1 };
         for (const c of retiredCols) rowData[c] = r[c] ?? '';
         ws.addRow(rowData);
-      }
+      });
+
+      // Bold total row below the data
+      ws.addRow({});
+      const totalRow = ws.addRow({ '#': `Total: ${retiredRows.length}` });
+      totalRow.getCell(1).font = { bold: true };
 
       ws.views = [{ state: 'frozen', ySplit: 1 }];
-      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: retiredCols.length } };
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: excelCols.length } };
 
       wb.xlsx.writeBuffer().then(buffer => {
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
