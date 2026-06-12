@@ -4,8 +4,8 @@
   "description": "Device report tool — filter overdue devices and trim CSVs to key location columns.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#061226",
+  "theme_color": "#061226",
   "icons": [
     {
       "src": "icon-192.png",
