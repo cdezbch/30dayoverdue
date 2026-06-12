@@ -697,7 +697,7 @@
 
       <div class="directions">
         <strong>🔑 API Access</strong>
-        Pulls all devices straight from the GroundControl API and keeps only ones with a <b>Retired</b> status. Your API key stays in this browser — it is never stored in the page code.
+        Pulls all devices straight from the GroundControl API and keeps only ones with a <b>Retired</b> status. Create a key under <b>Admin &gt; API</b> in the MAM console. Your key stays in this browser — it is never stored in the page code.
       </div>
 
       <div class="field">
@@ -712,7 +712,7 @@
 
       <div class="field">
         <label>Endpoint URL</label>
-        <input type="text" id="r-endpoint" value="https://api.groundctl.com/v1/devices/get/all" autocomplete="off">
+        <input type="text" id="r-endpoint" value="https://www.groundctl.com/api/v1/devices/find/all" autocomplete="off">
       </div>
 
       <button class="btn btn-primary" id="r-fetch-btn">
@@ -1314,29 +1314,17 @@
       else if (keyInput.value.trim()) localStorage.setItem(KEY_STORAGE, keyInput.value.trim());
     });
 
-    // The exact auth header scheme isn't published publicly, so try the
-    // common ones in order until one isn't rejected as unauthorized.
-    // x-api-key first: api.groundctl.com is AWS API Gateway, which uses it.
+    // Per the MAM OpenAPI spec, the key is passed as an api_key query parameter
     async function apiGet(url, apiKey) {
-      const authStyles = [
-        { 'x-api-key': apiKey },
-        { 'Authorization': `Bearer ${apiKey}` },
-        { 'Authorization': `Token ${apiKey}` },
-      ];
-      let lastStatus = null;
-      for (const auth of authStyles) {
-        const resp = await fetch(url, { headers: { 'Accept': 'application/json', ...auth } });
-        if (resp.ok) return resp.json();
-        lastStatus = resp.status;
-        if (resp.status !== 401 && resp.status !== 403) {
-          throw new Error(`API returned HTTP ${resp.status} for ${url}`);
-        }
-      }
-      throw new Error(`Authentication failed (HTTP ${lastStatus}). Check your API key.`);
+      const sep = url.includes('?') ? '&' : '?';
+      const resp = await fetch(`${url}${sep}api_key=${encodeURIComponent(apiKey)}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.status === 401) throw new Error('Unauthorized (HTTP 401) — check your API key.');
+      if (!resp.ok) throw new Error(`API returned HTTP ${resp.status}`);
+      return resp.json();
     }
 
-    // The response shape isn't published publicly either — accept a bare
-    // array or the usual wrapper property names.
     function extractDeviceList(data) {
       if (Array.isArray(data)) return data;
       for (const k of ['devices', 'data', 'results', 'items']) {
@@ -1345,25 +1333,28 @@
       return null;
     }
 
+    // Device.status is Active, Pending, or Retired
     function isRetired(device) {
-      return Object.keys(device).some(k =>
-        k.toLowerCase().includes('status') &&
-        (device[k] ?? '').toString().toLowerCase().includes('retired')
-      );
+      return (device.status ?? '').toString().toLowerCase() === 'retired';
     }
 
-    // Keep only scalar fields so nested objects don't junk up the table
+    // Keep scalar fields, and lift customFieldValues [{name, value}] into columns
     function flattenDevice(device) {
       const out = {};
       for (const [k, v] of Object.entries(device)) {
         if (v === null || ['string', 'number', 'boolean'].includes(typeof v)) out[k] = v ?? '';
+      }
+      if (Array.isArray(device.customFieldValues)) {
+        for (const f of device.customFieldValues) {
+          if (f && f.name) out[f.name] = f.value ?? '';
+        }
       }
       return out;
     }
 
     function orderColumns(rows) {
       const all = [...new Set(rows.flatMap(r => Object.keys(r)))];
-      const preferred = ['serial', 'name', 'asset', 'model', 'status', 'last', 'dept', 'clinic', 'home'];
+      const preferred = ['serial', 'name', 'asset', 'model', 'status', 'retire', 'last', 'dept', 'clinic', 'home'];
       const ordered = [];
       for (const pref of preferred) {
         for (const c of all) {
@@ -1385,7 +1376,7 @@
       statusText.textContent = 'Fetching devices from GroundControl...';
 
       try {
-        const data = await apiGet(endpointInput.value.trim() || 'https://api.groundctl.com/v1/devices/get/all', apiKey);
+        const data = await apiGet(endpointInput.value.trim() || 'https://www.groundctl.com/api/v1/devices/find/all', apiKey);
         const list = extractDeviceList(data);
         if (!list) throw new Error('Unexpected API response shape — could not find a device list.');
 

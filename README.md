@@ -16,21 +16,19 @@ Built by [c3dprints.com](https://c3dprints.com)
 
 ## Retired Devices (API) Tab
 
-1. In the MAM/GroundControl admin console, create an API key
+Uses the MAM REST API: `GET https://www.groundctl.com/api/v1/devices/find/all`
+with the key passed as an `api_key` query parameter (per the MAM OpenAPI spec).
+
+1. In the MAM admin console, go to **Admin > API** and create an API key
 2. Open the **Retired Devices** tab and paste the key (optionally check **Remember key on this device** — it is stored only in your browser's localStorage, never in this repo)
 3. Click **Fetch Retired Devices**, then **Download Excel**
 
-If the fetch fails with a CORS error (the API blocks calls made from a web page),
-use the `Get-RetiredDevices.ps1` script in this repo instead — it pulls the same
-report from PowerShell and saves it as a CSV you can drop into Excel:
+`Get-RetiredDevices.ps1` produces the same report from PowerShell as a CSV:
 
 ```powershell
-.\Get-RetiredDevices.ps1
+.\Get-RetiredDevices.ps1                  # retired devices
+.\Get-RetiredDevices.ps1 -Status Active   # or any other status
 ```
-
-If your API documentation (behind the MAM login) shows a different endpoint than
-`devices/get/all`, you can change it in the tab's **Endpoint** field or via the
-script's `-Endpoint` parameter.
 
 ## How to Use
 

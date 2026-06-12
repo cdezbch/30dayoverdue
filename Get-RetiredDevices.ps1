@@ -1,84 +1,53 @@
 <#
 .SYNOPSIS
-  Pulls retired devices from the GroundControl (Imprivata MAM) API and saves them to a CSV.
+  Pulls retired devices from the Imprivata Mobile Access Management (GroundControl)
+  REST API and saves them to a CSV.
 
-  The public API reference is gated behind the MAM login, so this script probes the
-  likely host/path/auth-header combinations with your key until one works, tells you
-  which combination succeeded, then filters for Retired devices and exports a CSV.
+  Per the MAM OpenAPI spec: GET /api/v1/devices/find/all with the API key passed
+  as an api_key query parameter. Create a key under Admin > API in the MAM console.
 
 .USAGE
   .\Get-RetiredDevices.ps1
-  .\Get-RetiredDevices.ps1 -Url "https://api.groundctl.com/v1/devices/get/all"   # skip probing
+  .\Get-RetiredDevices.ps1 -Status Active            # report a different status
+  .\Get-RetiredDevices.ps1 -OutFile "Retired.csv"
 #>
 param(
-    [string]$Url,
+    [string]$Url = "https://www.groundctl.com/api/v1/devices/find/all",
+    [string]$Status = "Retired",
     [string]$OutFile = "Retired Devices.csv"
 )
 
-$apiKey = Read-Host -AsSecureString -Prompt "Paste your GroundControl API key"
+$apiKey = Read-Host -AsSecureString -Prompt "Paste your MAM API key (Admin > API)"
 $apiKeyPlain = [System.Net.NetworkCredential]::new("", $apiKey).Password
 
-$candidateUrls = if ($Url) { @($Url) } else {
-    @(
-        "https://api.groundctl.com/v1/devices/get/all",
-        "https://api.groundctl.com/devices/get/all",
-        "https://api.groundctl.com/v1/devices",
-        "https://api.groundctl.com/v1/devices/find",
-        "https://www.groundctl.com/api/v1/devices/get/all",
-        "https://www.groundctl.com/api/v1/devices"
-    )
-}
+$sep = if ($Url.Contains('?')) { '&' } else { '?' }
+$devices = Invoke-RestMethod -Uri "$Url$($sep)api_key=$([uri]::EscapeDataString($apiKeyPlain))" -Headers @{ Accept = "application/json" }
 
-# x-api-key first: api.groundctl.com is AWS API Gateway, which uses it
-$authStyles = @(
-    @{ "x-api-key" = $apiKeyPlain },
-    @{ Authorization = "Bearer $apiKeyPlain" },
-    @{ Authorization = "Token $apiKeyPlain" }
-)
+$matched = @($devices | Where-Object { "$($_.status)" -ieq $Status })
+Write-Host "Found $($matched.Count) $Status of $(@($devices).Count) total devices."
 
-$data = $null
-$attempts = @()
-foreach ($u in $candidateUrls) {
-    foreach ($auth in $authStyles) {
-        $authName = ($auth.Keys | Select-Object -First 1)
-        $authDesc = if ($authName -eq "Authorization") { ($auth[$authName] -split ' ')[0] } else { $authName }
-        try {
-            $resp = Invoke-WebRequest -Uri $u -Headers ($auth + @{ Accept = "application/json" }) -SkipHttpErrorCheck -ErrorAction Stop
-            $attempts += "  $u [$authDesc] => HTTP $($resp.StatusCode)"
-            if ($resp.StatusCode -eq 200 -and $resp.Headers['Content-Type'] -like "*json*") {
-                Write-Host "SUCCESS: $u with auth header '$authDesc'" -ForegroundColor Green
-                $data = $resp.Content | ConvertFrom-Json
-                break
-            }
-        } catch {
-            $attempts += "  $u [$authDesc] => $($_.Exception.Message)"
-        }
+if (-not $matched.Count) { Write-Host "Nothing to export."; exit 0 }
+
+# Flatten: keep scalar fields, lift customFieldValues [{name, value}] into columns
+$rows = foreach ($d in $matched) {
+    $o = [ordered]@{}
+    foreach ($p in $d.PSObject.Properties) {
+        if ($p.Value -is [array] -or $p.Value -is [System.Management.Automation.PSCustomObject]) { continue }
+        $o[$p.Name] = $p.Value
     }
-    if ($data) { break }
+    foreach ($f in @($d.customFieldValues)) {
+        if ($f.name) { $o[$f.name] = $f.value }
+    }
+    [pscustomobject]$o
 }
 
-if (-not $data) {
-    Write-Host "No combination worked. Attempts:" -ForegroundColor Red
-    $attempts | ForEach-Object { Write-Host $_ }
-    Write-Host "`nNext step: grab the endpoint URL + auth header from the API docs inside your MAM admin console." -ForegroundColor Yellow
-    exit 1
-}
-
-# Accept a bare array or the usual wrapper property names
-$devices = if ($data -is [array]) { $data }
-           elseif ($data.devices) { $data.devices }
-           elseif ($data.data)    { $data.data }
-           elseif ($data.results) { $data.results }
-           elseif ($data.items)   { $data.items }
-           else { throw "Got a response, but couldn't find a device list in it. First 500 chars: $(($data | ConvertTo-Json -Depth 2).Substring(0, 500))" }
-
-$retired = $devices | Where-Object {
-    $d = $_
-    $d.PSObject.Properties | Where-Object {
-        $_.Name -like "*status*" -and "$($_.Value)" -like "*retired*"
+# Devices can differ in which custom fields they carry — give every row the
+# full column set so Export-Csv doesn't drop columns missing from the first row
+$allCols = [System.Collections.Generic.List[string]]::new()
+foreach ($r in $rows) {
+    foreach ($p in $r.PSObject.Properties.Name) {
+        if (-not $allCols.Contains($p)) { $allCols.Add($p) }
     }
 }
-
-Write-Host "Found $(@($retired).Count) retired of $(@($devices).Count) total devices."
-$retired | Export-Csv -Path $OutFile -NoTypeInformation -Encoding UTF8
+$rows | Select-Object $allCols | Export-Csv -Path $OutFile -NoTypeInformation -Encoding UTF8
 Write-Host "Saved to $OutFile"
