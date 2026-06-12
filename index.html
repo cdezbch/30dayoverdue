@@ -111,6 +111,10 @@
     align-items: start;
   }
 
+  /* Grid children default to min-width:auto, which lets a wide preview table
+     push the card past the viewport edge instead of scrolling in .table-wrap */
+  .layout > * { min-width: 0; }
+
   @media (max-width: 768px) {
     .layout { grid-template-columns: 1fr; }
   }
@@ -476,7 +480,7 @@
       <h1>CMDI GC Report Filter</h1>
       <p>Upload a device report CSV, filter by last-seen threshold, export a color-coded Excel.</p>
     </div>
-    <span class="badge">Chris H CMDI v2.15</span>
+    <span class="badge">Chris H CMDI v2.16</span>
   </header>
 
   <div class="tabs">
