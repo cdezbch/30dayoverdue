@@ -711,8 +711,8 @@
       </div>
 
       <div class="field">
-        <label>Endpoint</label>
-        <input type="text" id="r-endpoint" value="devices/get/all" autocomplete="off">
+        <label>Endpoint URL</label>
+        <input type="text" id="r-endpoint" value="https://api.groundctl.com/v1/devices/get/all" autocomplete="off">
       </div>
 
       <button class="btn btn-primary" id="r-fetch-btn">
@@ -1286,7 +1286,6 @@
      Tab: Retired Devices — pulled live from the GroundControl API
      ============================================================ */
   (() => {
-    const API_BASE = 'https://www.groundctl.com/api/v1';
     const KEY_STORAGE = 'gc_api_key';
 
     const keyInput = document.getElementById('r-api-key');
@@ -1317,11 +1316,11 @@
 
     // The exact auth header scheme isn't published publicly, so try the
     // common ones in order until one isn't rejected as unauthorized.
-    async function apiGet(path, apiKey) {
-      const url = `${API_BASE}/${path.replace(/^\/+/, '')}`;
+    // x-api-key first: api.groundctl.com is AWS API Gateway, which uses it.
+    async function apiGet(url, apiKey) {
       const authStyles = [
+        { 'x-api-key': apiKey },
         { 'Authorization': `Bearer ${apiKey}` },
-        { 'X-API-Key': apiKey },
         { 'Authorization': `Token ${apiKey}` },
       ];
       let lastStatus = null;
@@ -1386,7 +1385,7 @@
       statusText.textContent = 'Fetching devices from GroundControl...';
 
       try {
-        const data = await apiGet(endpointInput.value.trim() || 'devices/get/all', apiKey);
+        const data = await apiGet(endpointInput.value.trim() || 'https://api.groundctl.com/v1/devices/get/all', apiKey);
         const list = extractDeviceList(data);
         if (!list) throw new Error('Unexpected API response shape — could not find a device list.');
 
